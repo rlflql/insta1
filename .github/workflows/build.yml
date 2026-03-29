@@ -10,24 +10,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # 안드로이드 빌드에 꼭 필요한 자바 17 설정을 추가했습니다.
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           
-      - name: Install Flet
+      - name: Install Dependencies
         run: |
           pip install --upgrade pip
           pip install flet instaloader
           
-      - name: Install Flutter SDK
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           
-      - name: Build APK
+      - name: Build APK (Verbose Mode)
         run: |
-          # 복잡한 옵션 없이 실행하면 flet.yaml 파일을 자동으로 읽습니다.
+          # flet.yaml 설정 파일을 자동으로 읽어서 빌드합니다.
           flet build apk --verbose
           
       - name: Upload APK
