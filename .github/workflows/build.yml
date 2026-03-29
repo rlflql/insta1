@@ -27,7 +27,8 @@ jobs:
           
       - name: Build APK
         run: |
-          flet build apk --project-name "InstaSavePro" --org "com.yourname.instasave"
+          # 복잡한 옵션 없이 실행하면 flet.yaml 파일을 자동으로 읽습니다.
+          flet build apk --verbose
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
