@@ -8,3 +8,6 @@ android:
     - INTERNET
     - WRITE_EXTERNAL_STORAGE
     - READ_EXTERNAL_STORAGE
+  # 일부 기기에서 검은 화면이 뜨는 현상을 방지하는 설정
+  meta_data:
+    io.flutter.embedding.android.DisableSurfaceControl: "true"
