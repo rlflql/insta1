@@ -1,0 +1,10 @@
+# flet.yaml
+product: "Insta Save Pro"
+org: "com.antigravity.instasave"
+version: "1.0.0"
+
+android:
+  permissions:
+    - INTERNET
+    - WRITE_EXTERNAL_STORAGE
+    - READ_EXTERNAL_STORAGE
