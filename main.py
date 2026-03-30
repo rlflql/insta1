@@ -7,7 +7,7 @@ async def main(page: ft.Page):
     try:
         # 페이지 기본 설정
         page.title = "Insta Save Pro"
-        page.theme_mode = "dark"
+        page.theme_mode = ft.ThemeMode.DARK
         page.padding = 20
         page.bgcolor = "#0F0F1A"
         
@@ -18,24 +18,25 @@ async def main(page: ft.Page):
             
         downloader = InstaDownloader(download_dir=download_path)
 
-        # --- UI 컴포넌트 (문자열 아이콘 사용) ---
+        # --- UI 컴포넌트 ---
         
-        # 상단 로고 (문자열 "camera" 사용 - 절대 오류 안 남)
+        # 상단 로고 (이름을 명시하지 않고 "camera" 문자열만 전달)
         header = ft.Column(
             [
-                ft.Icon(name="camera", size=60, color="pink400"),
+                ft.Icon("camera", size=60, color="pink400"),
                 ft.Text("Insta Save Pro", size=32, weight="bold", color="white"),
                 ft.Text("Original Quality Downloader", size=14, color="grey400"),
             ],
             horizontal_alignment="center",
         )
 
-        # URL 입력창 (문자열 "link" 사용)
+        # URL 입력창
         url_input = ft.TextField(
             label="Instagram URL",
             hint_text="주소를 입력하세요",
             border_radius=15,
             border_color="pink300",
+            # prefix_icon도 문자열로 직접 전달
             prefix_icon="link",
             expand=True
         )
@@ -56,16 +57,18 @@ async def main(page: ft.Page):
 
             btn_download.disabled = True
             prog_bar.visible = True
-            status_text.value = "이전 중..."
+            status_text.value = "이미지 분석 중..."
             page.update()
 
+            # 실제 다운로드 실행
             success, result = await asyncio.to_thread(downloader.parse_url_and_download, url)
             
             btn_download.disabled = False
             prog_bar.visible = False
             status_text.value = "완료" if success else "실패"
+            
             if success:
-                add_log(f"성공: {len(result)}개 저장")
+                add_log(f"성공: {len(result)}개 파일 저장")
             else:
                 add_log(str(result), is_error=True)
             page.update()
@@ -80,7 +83,7 @@ async def main(page: ft.Page):
             on_click=start_download,
         )
 
-        # 로그인 섹션 (문자열 "lock" 사용)
+        # 로그인 섹션
         def show_login(e):
             bs.open = True
             page.update()
@@ -91,9 +94,9 @@ async def main(page: ft.Page):
         bs = ft.BottomSheet(
             ft.Container(
                 ft.Column([
-                    ft.Text("Login", size=20, weight="bold"),
+                    ft.Text("Login Settings", size=20, weight="bold"),
                     login_user, login_pass,
-                    ft.ElevatedButton("Login", on_click=lambda _: None) 
+                    ft.ElevatedButton("Save", on_click=lambda _: None) 
                 ], tight=True),
                 padding=20, bgcolor="#161625"
             )
@@ -111,17 +114,17 @@ async def main(page: ft.Page):
                     prog_bar,
                     status_text,
                     log_area,
-                    ft.ListTile(leading=ft.Icon(name="lock"), title=ft.Text("Login Settings"), on_click=show_login)
+                    # Icon 명칭 미사용 버전
+                    ft.ListTile(leading=ft.Icon("lock"), title=ft.Text("Login Settings"), on_click=show_login)
                 ],
                 horizontal_alignment="center",
             )
         )
         
     except Exception as e:
-        # 이 부분마저 오류가 나면 텍스트만이라도 띄웁니다.
-        page.add(ft.Text(f"Fatal Error: {str(e)}", color="red"))
+        # 모든 오류를 텍스트로 안전하게 출력
+        page.add(ft.Text(f"Critical Runtime Error: {str(e)}", color="red"))
         page.update()
 
 if __name__ == "__main__":
     ft.app(target=main)
-
