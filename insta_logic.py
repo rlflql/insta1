@@ -2,7 +2,6 @@ import os
 import re
 import datetime
 import subprocess
-from zoneinfo import ZoneInfo
 from pathlib import Path
 import instaloader
 
@@ -20,7 +19,9 @@ class InstaDownloader:
             dirname_pattern=download_dir
         )
         self.download_dir = Path(download_dir)
-        self.kst = ZoneInfo("Asia/Seoul")
+        
+        # [수정] 안드로이드 호환성을 위해 ZoneInfo 대신 고정 오프셋 사용
+        self.kst = datetime.timezone(datetime.timedelta(hours=9))
         self.session_file = "insta_session"
 
     def login(self, username, password):
@@ -42,7 +43,9 @@ class InstaDownloader:
 
     def get_kst_time(self, utc_time):
         """UTC 시간을 KST(한국 시간)으로 변환"""
-        return utc_time.replace(tzinfo=datetime.timezone.utc).astimezone(self.kst)
+        if utc_time.tzinfo is None:
+            utc_time = utc_time.replace(tzinfo=datetime.timezone.utc)
+        return utc_time.astimezone(self.kst)
 
     def clean_filename(self, filename):
         """파일명에 사용 불가능한 문자 제거"""
@@ -51,7 +54,6 @@ class InstaDownloader:
     def download_post(self, url, progress_callback=None):
         """일반 게시물(Post/Reel) 다운로드"""
         try:
-            # URL에서 shortcode 추출
             match = re.search(r'/(?:p|reels|reel)/([^/?#&]+)', url)
             if not match:
                 return False, "올바른 게시물 URL이 아닙니다."
@@ -59,15 +61,12 @@ class InstaDownloader:
             shortcode = match.group(1)
             post = instaloader.Post.from_shortcode(self.L.context, shortcode)
             
-            # 업로드 시간 (KST)
             kst_date = self.get_kst_time(post.date_utc)
             base_filename = kst_date.strftime("%y%m%d %H시 %M분")
             
-            # 폴더 생성
             save_path = self.download_dir
             save_path.mkdir(parents=True, exist_ok=True)
 
-            # 게시물 미디어 다운로드 (캐러셀 대응)
             nodes = list(post.get_sidecar_nodes()) if post.typename == 'GraphSidecar' else [post]
             count = len(nodes)
             
@@ -76,17 +75,13 @@ class InstaDownloader:
                 suffix = f"_{i}" if count > 1 else ""
                 final_filename = f"{base_filename}{suffix}"
                 
-                # Instaloader의 다운로드 메서드 대신 직접 파일 저장 로직 구현 (커스텀 파일명을 위함)
                 target_url = node.video_url if node.is_video else node.display_url
                 extension = "mp4" if node.is_video else "jpg"
-                
                 file_path = save_path / f"{final_filename}.{extension}"
                 
-                # 파일 다운로드 (원본 화질)
                 self.L.download_pic(file_path, target_url, post.date_utc)
                 downloaded_files.append(str(file_path))
                 
-                # 미디어 스캔 (갤러리 반영)
                 self.scan_media(file_path)
 
                 if progress_callback:
@@ -100,9 +95,6 @@ class InstaDownloader:
         """안드로이드 미디어 스캐너 호출 (갤러리 즉시 반영)"""
         if os.name != 'nt':
             try:
-                # Android shell command to scan file
-                subprocess.run(['termux-media-scan', str(file_path)], capture_output=True)
-                # Alternative via am broadcast (common Android shell)
                 subprocess.run(['am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', f'file://{file_path}'], capture_output=True)
             except:
                 pass
@@ -123,18 +115,13 @@ class InstaDownloader:
             if total == 0:
                 return False, "현재 다운로드 가능한 스토리가 없습니다."
 
-            # 시간대별 정렬 (업로드 순)
             all_items.sort(key=lambda x: x.date_utc)
-
-            time_counts = {} # 동일 시간대 중복 처리용
+            time_counts = {}
 
             for i, item in enumerate(all_items, 1):
                 kst_date = self.get_kst_time(item.date_utc)
-                
-                # 초 단위까지 포함 시도
                 time_key = kst_date.strftime("%y%m%d %H시 %M분 %S초")
                 
-                # 동일 시간이 이미 있으면 번호 붙이기
                 if time_key in time_counts:
                     time_counts[time_key] += 1
                     final_filename = f"{kst_date.strftime('%y%m%d %H시 %M분')}_{time_counts[time_key]}"
@@ -151,8 +138,6 @@ class InstaDownloader:
                 
                 self.L.download_pic(file_path, target_url, item.date_utc)
                 downloaded_files.append(str(file_path))
-
-                # 미디어 스캔 (갤러리 반영)
                 self.scan_media(file_path)
 
                 if progress_callback:
@@ -165,10 +150,7 @@ class InstaDownloader:
     def parse_url_and_download(self, url, progress_callback=None):
         """URL 유형 분석 후 적절한 함수 실행"""
         if "stories/" in url:
-            # https://www.instagram.com/stories/계정명/ 혹은 .../stories/계정명
             match = re.search(r'stories/([^/?#&]+)', url)
             if match:
                 return self.download_stories(match.group(1), progress_callback)
-        
-        # 일반 게시물
         return self.download_post(url, progress_callback)
